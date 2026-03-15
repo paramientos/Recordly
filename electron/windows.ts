@@ -12,6 +12,7 @@ const RENDERER_DIST = path.join(APP_ROOT, 'dist')
 const WINDOW_ICON_PATH = path.join(process.env.VITE_PUBLIC || RENDERER_DIST, 'app-icons', 'recordly-512.png')
 
 let hudOverlayWindow: BrowserWindow | null = null;
+let webcamWindow: BrowserWindow | null = null;
 
 function getScreen() {
   return nodeRequire('electron').screen as typeof import('electron').screen
@@ -28,7 +29,7 @@ export function createHudOverlayWindow(): BrowserWindow {
   const { workArea } = primaryDisplay;
 
 
-  const windowWidth = 600;
+  const windowWidth = 650;
   const windowHeight = 155;
 
   const x = Math.floor(workArea.x + (workArea.width - windowWidth) / 2);
@@ -37,8 +38,8 @@ export function createHudOverlayWindow(): BrowserWindow {
   const win = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
-    minWidth: 600,
-    maxWidth: 600,
+    minWidth: 650,
+    maxWidth: 650,
     minHeight: 155,
     maxHeight: 155,
     x: x,
@@ -182,5 +183,77 @@ export function createSourceSelectorWindow(): BrowserWindow {
   }
 
   return win
+}
+
+export function createWebcamWindow(shape?: string, size?: string): BrowserWindow {
+  const { width, height } = getScreen().getPrimaryDisplay().workAreaSize
+  
+  const sizeValue = size || 'medium'
+  const shapeValue = shape || 'circle'
+  
+  const sizeMap = { small: 150, medium: 200, large: 280 }
+  const WEBCAM_SIZE = sizeMap[sizeValue as keyof typeof sizeMap] || 200
+  
+  const WEBCAM_WIDTH = shapeValue === 'oval' ? WEBCAM_SIZE * 1.5 : WEBCAM_SIZE
+  const WEBCAM_HEIGHT = WEBCAM_SIZE
+  
+  const win = new BrowserWindow({
+    width: Math.round(WEBCAM_WIDTH),
+    height: Math.round(WEBCAM_HEIGHT),
+    x: Math.round(width - WEBCAM_WIDTH - 50),
+    y: Math.round(height - WEBCAM_HEIGHT - 50),
+    frame: false,
+    resizable: false,
+    alwaysOnTop: true,
+    transparent: true,
+    hasShadow: false,
+    skipTaskbar: true,
+    ...(process.platform !== 'darwin' && {
+      icon: WINDOW_ICON_PATH,
+    }),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.mjs'),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  })
+
+  webcamWindow = win
+
+  win.on('closed', () => {
+    if (webcamWindow === win) {
+      webcamWindow = null
+    }
+  })
+
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  win.setAlwaysOnTop(true, 'floating', 1)
+
+  const params = new URLSearchParams({ 
+    windowType: 'webcam',
+    shape: shapeValue,
+    size: sizeValue
+  })
+
+  if (VITE_DEV_SERVER_URL) {
+    win.loadURL(VITE_DEV_SERVER_URL + '?' + params.toString())
+  } else {
+    win.loadFile(path.join(RENDERER_DIST, 'index.html'), { 
+      query: Object.fromEntries(params)
+    })
+  }
+
+  return win
+}
+
+export function getWebcamWindow(): BrowserWindow | null {
+  return webcamWindow
+}
+
+export function closeWebcamWindow(): void {
+  if (webcamWindow && !webcamWindow.isDestroyed()) {
+    webcamWindow.close()
+    webcamWindow = null
+  }
 }
 

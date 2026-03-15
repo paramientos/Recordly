@@ -3,12 +3,13 @@ import { BsRecordCircle } from "react-icons/bs";
 import { FaRegStopCircle } from "react-icons/fa";
 import { FaFolderOpen } from "react-icons/fa6";
 import { FiMinus, FiX } from "react-icons/fi";
-import { MdMic, MdMicOff, MdMonitor, MdVideoFile, MdVolumeOff, MdVolumeUp } from "react-icons/md";
+import { MdMic, MdMicOff, MdMonitor, MdVideoFile, MdVolumeOff, MdVolumeUp, MdVideocam, MdVideocamOff } from "react-icons/md";
 import { Languages } from "lucide-react";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { useAudioLevelMeter } from "../../hooks/useAudioLevelMeter";
 import { useMicrophoneDevices } from "../../hooks/useMicrophoneDevices";
-import { useScreenRecorder } from "../../hooks/useScreenRecorder";
+import { useCameraDevices } from "../../hooks/useCameraDevices";
+import { useScreenRecorder, type WebcamShape, type WebcamSize } from "../../hooks/useScreenRecorder";
 import { useScopedT } from "../../contexts/I18nContext";
 import { Button } from "../ui/button";
 import { AudioLevelMeter } from "../ui/audio-level-meter";
@@ -38,11 +39,21 @@ export function LaunchWindow() {
     setMicrophoneDeviceId,
     systemAudioEnabled,
     setSystemAudioEnabled,
+    webcamEnabled,
+    setWebcamEnabled,
+    webcamDeviceId,
+    setWebcamDeviceId,
+    webcamShape,
+    setWebcamShape,
+    webcamSize,
+    setWebcamSize,
   } = useScreenRecorder();
   const [recordingStart, setRecordingStart] = useState<number | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const showMicControls = microphoneEnabled && !recording;
+  const showWebcamControls = webcamEnabled && !recording;
   const { devices, selectedDeviceId, setSelectedDeviceId } = useMicrophoneDevices(microphoneEnabled);
+  const { devices: cameraDevices, selectedDeviceId: selectedCameraId, setSelectedDeviceId: setSelectedCameraId } = useCameraDevices(webcamEnabled);
   const { level } = useAudioLevelMeter({
     enabled: showMicControls,
     deviceId: microphoneDeviceId,
@@ -53,6 +64,12 @@ export function LaunchWindow() {
       setMicrophoneDeviceId(selectedDeviceId);
     }
   }, [selectedDeviceId, setMicrophoneDeviceId]);
+
+  useEffect(() => {
+    if (selectedCameraId && selectedCameraId !== "default") {
+      setWebcamDeviceId(selectedCameraId);
+    }
+  }, [selectedCameraId, setWebcamDeviceId]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
@@ -166,6 +183,12 @@ export function LaunchWindow() {
     }
   };
 
+  const toggleWebcam = () => {
+    if (!recording) {
+      setWebcamEnabled(!webcamEnabled);
+    }
+  };
+
   return (
     <div className="w-full h-full flex items-end justify-center bg-transparent overflow-hidden">
       <div className={`flex flex-col items-center gap-2 mx-auto ${styles.electronDrag}`}>
@@ -188,6 +211,45 @@ export function LaunchWindow() {
               ))}
             </select>
             <AudioLevelMeter level={level} className="w-24" />
+          </div>
+        )}
+
+        {showWebcamControls && (
+          <div
+            className={`flex items-center gap-2 rounded-full border border-white/15 bg-[rgba(18,18,26,0.92)] px-3 py-2 shadow-xl backdrop-blur-xl ${styles.electronNoDrag}`}
+          >
+            <select
+              value={webcamDeviceId || selectedCameraId}
+              onChange={(event) => {
+                setSelectedCameraId(event.target.value);
+                setWebcamDeviceId(event.target.value);
+              }}
+              className={`max-w-[150px] rounded-full border border-white/15 bg-[#131722] px-3 py-1 text-xs text-slate-100 outline-none ${styles.micSelect}`}
+            >
+              {cameraDevices.map((device) => (
+                <option key={device.deviceId} value={device.deviceId}>
+                  {device.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={webcamShape}
+              onChange={(event) => setWebcamShape(event.target.value as WebcamShape)}
+              className={`rounded-full border border-white/15 bg-[#131722] px-3 py-1 text-xs text-slate-100 outline-none ${styles.micSelect}`}
+            >
+              <option value="circle">⚪</option>
+              <option value="square">⬜</option>
+              <option value="oval">⬭</option>
+            </select>
+            <select
+              value={webcamSize}
+              onChange={(event) => setWebcamSize(event.target.value as WebcamSize)}
+              className={`rounded-full border border-white/15 bg-[#131722] px-3 py-1 text-xs text-slate-100 outline-none ${styles.micSelect}`}
+            >
+              <option value="small">S</option>
+              <option value="medium">M</option>
+              <option value="large">L</option>
+            </select>
           </div>
         )}
 
@@ -240,6 +302,16 @@ export function LaunchWindow() {
               className="text-white/80 hover:bg-transparent"
             >
               {microphoneEnabled ? <MdMic size={16} className="text-[#2563EB]" /> : <MdMicOff size={16} className="text-white/35" />}
+            </Button>
+            <Button
+              variant="link"
+              size="icon"
+              onClick={toggleWebcam}
+              disabled={recording}
+              title={webcamEnabled ? "Disable webcam" : "Enable webcam"}
+              className="text-white/80 hover:bg-transparent"
+            >
+              {webcamEnabled ? <MdVideocam size={16} className="text-[#2563EB]" /> : <MdVideocamOff size={16} className="text-white/35" />}
             </Button>
           </div>
 
